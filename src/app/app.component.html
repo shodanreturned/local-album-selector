@@ -1,8 +1,17 @@
 <main class="page">
+  <input
+    #imageFilesInput
+    type="file"
+    accept=".jpg,.jpeg,image/jpeg"
+    multiple
+    hidden
+    (change)="onFilesChosen($event)"
+  />
+
   <header class="top-bar">
     <div class="actions">
       <button type="button" (click)="pickDirectory()" [disabled]="isLoading">
-        {{ isLoading ? 'Loading...' : 'Choose Source Folder' }}
+        {{ isLoading ? 'Loading...' : (supportsDirectoryPicker ? 'Choose Source Folder' : 'Choose JPG Files') }}
       </button>
       <button
         type="button"
@@ -27,7 +36,7 @@
 
   <section class="grid-wrapper" (scroll)="onGridScroll($event)">
     <p *ngIf="!allImages.length && !isLoading" class="empty">
-      Choose a folder to load JPG images.
+      {{ supportsDirectoryPicker ? 'Choose a folder to load JPG images.' : 'Choose JPG files to load images.' }}
     </p>
 
     <div class="grid">

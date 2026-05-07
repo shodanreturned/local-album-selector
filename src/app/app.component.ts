@@ -1,4 +1,4 @@
-import { Component, OnDestroy } from '@angular/core';
+import { Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
 
 type DirectoryHandle = FileSystemDirectoryHandle;
 type FileHandle = FileSystemFileHandle;
@@ -7,7 +7,8 @@ interface AlbumImage {
   id: string;
   name: string;
   url: string;
-  handle: FileHandle;
+  file: File;
+  handle: FileHandle | null;
   selected: boolean;
 }
 
@@ -17,6 +18,8 @@ interface AlbumImage {
   styleUrls: ['./app.component.css'],
 })
 export class AppComponent implements OnDestroy {
+  @ViewChild('imageFilesInput') private imageFilesInput?: ElementRef<HTMLInputElement>;
+
   private readonly batchSize = 80;
   private readonly longPressMs = 450;
   private longPressTimer: ReturnType<typeof setTimeout> | null = null;
@@ -32,6 +35,10 @@ export class AppComponent implements OnDestroy {
   showSelectedOnly = false;
   fullscreenImageUrl: string | null = null;
   fullscreenImageName = '';
+
+  get supportsDirectoryPicker(): boolean {
+    return 'showDirectoryPicker' in window;
+  }
 
   get selectedCount(): number {
     return this.allImages.filter((image) => image.selected).length;
@@ -57,8 +64,8 @@ export class AppComponent implements OnDestroy {
 
   async pickDirectory(): Promise<void> {
     this.errorMessage = '';
-    if (!('showDirectoryPicker' in window)) {
-      this.errorMessage = 'Directory picking requires a Chromium browser over HTTPS or localhost.';
+    if (!this.supportsDirectoryPicker) {
+      this.imageFilesInput?.nativeElement.click();
       return;
     }
 
@@ -70,7 +77,7 @@ export class AppComponent implements OnDestroy {
       this.allImages = [];
       this.destinationHandle = null;
 
-      const rootHandle = await (window as Window & { showDirectoryPicker: () => Promise<DirectoryHandle> }).showDirectoryPicker();
+      const rootHandle = await this.getDirectoryPicker()();
       const fileHandles = await this.collectImageHandles(rootHandle);
 
       this.allImages = await Promise.all(
@@ -80,6 +87,7 @@ export class AppComponent implements OnDestroy {
             id: `${index}-${file.name}`,
             name: file.name,
             url: URL.createObjectURL(file),
+            file,
             handle,
             selected: false,
           };
@@ -91,6 +99,37 @@ export class AppComponent implements OnDestroy {
     } finally {
       this.isLoading = false;
     }
+  }
+
+  onFilesChosen(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const files = Array.from(input.files ?? []);
+    if (!files.length) {
+      return;
+    }
+
+    this.errorMessage = '';
+    this.showSelectedOnly = false;
+    this.visibleCount = this.batchSize;
+    this.revokeAllUrls();
+    this.destinationHandle = null;
+
+    this.allImages = files
+      .filter((file) => {
+        const lower = file.name.toLowerCase();
+        return lower.endsWith('.jpg') || lower.endsWith('.jpeg');
+      })
+      .map((file, index) => ({
+        id: `${index}-${file.name}`,
+        name: file.name,
+        url: URL.createObjectURL(file),
+        file,
+        handle: null,
+        selected: false,
+      }));
+
+    this.allImages.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+    input.value = '';
   }
 
   onGridScroll(event: Event): void {
@@ -150,19 +189,19 @@ export class AppComponent implements OnDestroy {
       return;
     }
 
-    if (!('showDirectoryPicker' in window)) {
-      this.errorMessage = 'Destination folder picking requires a Chromium browser.';
+    if (!this.supportsDirectoryPicker) {
+      this.downloadSelectedImages(selected);
       return;
     }
 
     try {
       this.isSelectingDestination = true;
       if (!this.destinationHandle) {
-        this.destinationHandle = await (window as Window & { showDirectoryPicker: () => Promise<DirectoryHandle> }).showDirectoryPicker();
+        this.destinationHandle = await this.getDirectoryPicker()();
       }
 
       for (const image of selected) {
-        const sourceFile = await image.handle.getFile();
+        const sourceFile = image.handle ? await image.handle.getFile() : image.file;
         const targetHandle = await this.destinationHandle.getFileHandle(sourceFile.name, { create: true });
         const writable = await (
           targetHandle as unknown as { createWritable: () => Promise<{ write: (data: ArrayBuffer) => Promise<void>; close: () => Promise<void> }> }
@@ -225,5 +264,18 @@ export class AppComponent implements OnDestroy {
       return error.message;
     }
     return fallback;
+  }
+
+  private downloadSelectedImages(selected: AlbumImage[]): void {
+    for (const image of selected) {
+      const link = document.createElement('a');
+      link.href = image.url;
+      link.download = image.name;
+      link.click();
+    }
+  }
+
+  private getDirectoryPicker(): () => Promise<DirectoryHandle> {
+    return (window as unknown as { showDirectoryPicker: () => Promise<DirectoryHandle> }).showDirectoryPicker;
   }
 }

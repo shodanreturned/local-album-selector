@@ -54,12 +54,15 @@ button:disabled {
 .grid-wrapper {
   flex: 1;
   overflow-y: auto;
+  scroll-snap-type: y mandatory;
 }
 
 .grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 680px;
+  margin: 0 auto;
 }
 
 .card {
@@ -68,6 +71,10 @@ button:disabled {
   border-radius: 10px;
   overflow: hidden;
   user-select: none;
+  height: calc(100vh - 150px);
+  display: flex;
+  flex-direction: column;
+  scroll-snap-align: start;
 }
 
 .card.selected {
@@ -76,7 +83,7 @@ button:disabled {
 
 img {
   width: 100%;
-  aspect-ratio: 1 / 1;
+  height: calc(100% - 32px);
   object-fit: cover;
   display: block;
 }
@@ -84,10 +91,11 @@ img {
 .name {
   display: block;
   font-size: 12px;
-  padding: 8px;
+  padding: 8px 10px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  background: #fff;
 }
 
 .empty {
