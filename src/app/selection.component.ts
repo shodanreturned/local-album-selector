@@ -1,9 +1,8 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
+import { zipSync } from 'fflate';
 
 import { AlbumImage, SourceStoreService } from './source-store.service';
-
-type DirectoryHandle = FileSystemDirectoryHandle;
 
 @Component({
   selector: 'app-selection',
@@ -20,7 +19,6 @@ export class SelectionComponent implements OnInit, OnDestroy {
   private pendingTapTimer: ReturnType<typeof setTimeout> | null = null;
   private infoToastTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingTapImageId: string | null = null;
-  private destinationHandle: DirectoryHandle | null = null;
 
   allImages: AlbumImage[] = [];
   isLoading = false;
@@ -64,6 +62,20 @@ export class SelectionComponent implements OnInit, OnDestroy {
   }
 
   async ngOnInit(): Promise<void> {
+    const pendingSourceHandle = this.sourceStore.consumePendingSourceHandle();
+    if (pendingSourceHandle) {
+      this.sourceFolderName = pendingSourceHandle.name;
+      this.isLoading = true;
+      try {
+        this.allImages = await this.sourceStore.loadImagesFromDirectoryHandle(pendingSourceHandle);
+        this.restoreSelectionFromStorage();
+        this.visibleCount = this.renderBatchSize;
+      } finally {
+        this.isLoading = false;
+      }
+      return;
+    }
+
     const pendingManualFiles = this.sourceStore.consumePendingManualFiles();
     if (pendingManualFiles.length) {
       this.loadManualFiles(pendingManualFiles);
@@ -139,24 +151,11 @@ export class SelectionComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (!this.supportsDirectoryPicker) {
-      for (const image of selected) {
-        const link = document.createElement('a');
-        link.href = image.url;
-        link.download = image.name;
-        link.click();
-      }
-      this.pushInfoToast(`Downloaded ${selected.length} selected image${selected.length === 1 ? '' : 's'}.`);
-      return;
-    }
-
     try {
       this.isLoading = true;
-      if (!this.destinationHandle) {
-        this.destinationHandle = await this.sourceStore.getDirectoryPicker()();
-      }
       const copyPlan = this.buildCopyPlan(selected);
-      this.copyProgressText = `Copying 0/${selected.length}...`;
+      const zipEntries: Record<string, Uint8Array> = {};
+      this.copyProgressText = `Adding files 0/${selected.length}...`;
       this.copyProgressPercent = 0;
       let completed = 0;
       const queue = [...copyPlan];
@@ -169,25 +168,34 @@ export class SelectionComponent implements OnInit, OnDestroy {
           }
 
           const sourceFile = task.image.handle ? await task.image.handle.getFile() : task.image.file;
-          const targetHandle = await this.destinationHandle!.getFileHandle(task.targetName, { create: true });
-          const writable = await (
-            targetHandle as unknown as { createWritable: () => Promise<{ write: (data: ArrayBuffer) => Promise<void>; close: () => Promise<void> }> }
-          ).createWritable();
-          await writable.write(await sourceFile.arrayBuffer());
-          await writable.close();
+          const bytes = await sourceFile.arrayBuffer();
+          zipEntries[task.targetName] = new Uint8Array(bytes);
 
           completed += 1;
-          await this.updateCopyProgress(completed, selected.length);
+          await this.updateCopyProgress(completed, selected.length, 'Adding files');
         }
       };
 
       const workerCount = Math.min(this.copyConcurrency, selected.length);
       await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
-      await this.updateCopyProgress(selected.length, selected.length);
+
+      this.copyProgressText = 'Compressing zip...';
+      this.copyProgressPercent = 90;
+      await this.nextFrame();
+
+      const zipped = zipSync(zipEntries, { level: 6 });
+      const zipBuffer = new ArrayBuffer(zipped.byteLength);
+      new Uint8Array(zipBuffer).set(zipped);
+      const zipBlob = new Blob([zipBuffer], { type: 'application/zip' });
+      this.copyProgressPercent = 100;
+      await this.nextFrame();
+      this.downloadZip(zipBlob, this.getZipFileName());
+
+      await this.updateCopyProgress(selected.length, selected.length, 'Added files');
       await this.sleep(250);
       this.copyProgressText = '';
       this.copyProgressPercent = 0;
-      this.pushInfoToast(`Copied ${selected.length} selected image${selected.length === 1 ? '' : 's'}.`);
+      this.pushInfoToast(`Downloaded zip with ${selected.length} selected image${selected.length === 1 ? '' : 's'}.`);
     } catch (error) {
       this.copyProgressText = '';
       this.copyProgressPercent = 0;
@@ -366,8 +374,8 @@ export class SelectionComponent implements OnInit, OnDestroy {
     return `${name} (${copyIndex})${ext}`;
   }
 
-  private async updateCopyProgress(completed: number, total: number): Promise<void> {
-    this.copyProgressText = `Copying ${completed}/${total}...`;
+  private async updateCopyProgress(completed: number, total: number, label: string): Promise<void> {
+    this.copyProgressText = `${label} ${completed}/${total}...`;
     this.copyProgressPercent = Math.round((completed / total) * 100);
     await this.nextFrame();
   }
@@ -378,5 +386,20 @@ export class SelectionComponent implements OnInit, OnDestroy {
 
   private async sleep(ms: number): Promise<void> {
     await new Promise<void>((resolve) => setTimeout(() => resolve(), ms));
+  }
+
+  private getZipFileName(): string {
+    const sourceName = this.sourceFolderName.trim() || 'selected-images';
+    const safe = sourceName.replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, '-');
+    return `${safe}-selection.zip`;
+  }
+
+  private downloadZip(blob: Blob, fileName: string): void {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 }

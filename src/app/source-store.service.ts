@@ -19,6 +19,7 @@ export class SourceStoreService {
   readonly sourceHandleStoreName = 'handles';
   readonly sourceHandleKey = 'source-folder-handle';
   private pendingManualFiles: File[] = [];
+  private pendingSourceHandle: DirectoryHandle | null = null;
 
   get supportsDirectoryPicker(): boolean {
     return 'showDirectoryPicker' in window;
@@ -108,6 +109,16 @@ export class SourceStoreService {
     const files = [...this.pendingManualFiles];
     this.pendingManualFiles = [];
     return files;
+  }
+
+  setPendingSourceHandle(handle: DirectoryHandle): void {
+    this.pendingSourceHandle = handle;
+  }
+
+  consumePendingSourceHandle(): DirectoryHandle | null {
+    const handle = this.pendingSourceHandle;
+    this.pendingSourceHandle = null;
+    return handle;
   }
 
   private async collectImageHandles(directory: DirectoryHandle): Promise<FileHandle[]> {

@@ -250,7 +250,7 @@
 .floating-finalize {
   position: fixed;
   right: 22px;
-  bottom: 22px;
+  bottom: calc(22px + env(safe-area-inset-bottom, 0px));
   z-index: 35;
   border: none;
   border-radius: 999px;
@@ -295,7 +295,7 @@
   .gallery { column-count: 1; }
   .floating-finalize {
     right: 12px;
-    bottom: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   }
   .floating-clear {
     top: 10px;

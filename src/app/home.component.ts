@@ -34,6 +34,7 @@ export class HomeComponent {
     try {
       this.isLoading = true;
       const handle = await this.sourceStore.getDirectoryPicker()();
+      this.sourceStore.setPendingSourceHandle(handle);
       await this.sourceStore.persistSourceFolder(handle);
       this.sourceFolderName = handle.name;
       await this.router.navigate(['/selection']);

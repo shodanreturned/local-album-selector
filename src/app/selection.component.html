@@ -51,7 +51,7 @@
   </section>
 
   <button
-    *ngIf="showSelectedOnly"
+    *ngIf="selectedCount > 0"
     class="floating-finalize"
     type="button"
     (click)="requestFinalize()"
