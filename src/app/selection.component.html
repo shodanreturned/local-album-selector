@@ -29,8 +29,8 @@
     </div>
 
     <div class="pill toggle">
-      <button type="button" [class.active]="!showSelectedOnly" (click)="setShowSelectedOnly(false)">All <small>{{ photoCount }}</small></button>
-      <button type="button" [class.active]="showSelectedOnly" (click)="setShowSelectedOnly(true)">Selected <small>{{ selectedCount }}</small></button>
+      <button type="button" [class.active]="!showSelectedOnly" [attr.aria-pressed]="!showSelectedOnly" (click)="setShowSelectedOnly(false)">All <small>{{ photoCount }}</small></button>
+      <button type="button" [class.active]="showSelectedOnly" [attr.aria-pressed]="showSelectedOnly" (click)="setShowSelectedOnly(true)">Selected <small>{{ selectedCount }}</small></button>
     </div>
 
   </header>
@@ -39,9 +39,15 @@
   <p *ngIf="copyProgressText" class="copy-progress">{{ copyProgressText }}</p>
 
   <section class="gallery-scroll" (scroll)="onGalleryScroll($event)">
-    <section class="gallery">
-      <article class="tile" *ngFor="let image of displayedImages" [class.selected]="image.selected" (pointerup)="onImageTap(image)">
-        <button class="pick-indicator" type="button">{{ image.selected ? '✓' : '+' }}</button>
+    <div *ngIf="isLoading && allImages.length === 0" class="loading-placeholder">
+      <div class="loading-spinner" aria-hidden="true"></div>
+      <p>Scanning folder&hellip;</p>
+    </div>
+
+    <section class="gallery" *ngIf="allImages.length > 0 || !isLoading">
+      <article class="tile" *ngFor="let image of displayedImages" [class.selected]="image.selected" (click)="onImageTap(image)">
+        <button class="pick-indicator" type="button" [attr.aria-label]="(image.selected ? 'Deselect' : 'Select') + ' ' + image.name">{{ image.selected ? '✓' : '+' }}</button>
+        <button class="view-btn" type="button" [attr.aria-label]="'View ' + image.name + ' fullscreen'" (click.stop)="openFullscreen(image)">⛶</button>
         <img [src]="image.url" [alt]="image.name" loading="lazy" />
         <footer>
           <span>{{ image.name }}</span>
@@ -51,7 +57,6 @@
   </section>
 
   <button
-    *ngIf="selectedCount > 0"
     class="floating-finalize"
     type="button"
     (click)="requestFinalize()"
@@ -67,20 +72,20 @@
 
 <div class="toast" *ngIf="showInfoToast">{{ infoMessage }}</div>
 
-<section class="confirm-overlay" *ngIf="showFinalizeConfirm">
+<section class="confirm-overlay" *ngIf="showFinalizeConfirm" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
   <div class="confirm-dialog">
-    <h3>Confirm Finalize</h3>
-    <p>Copy {{ selectedCount }} selected image{{ selectedCount === 1 ? '' : 's' }} to destination folder?</p>
+    <h3 id="confirm-title">Confirm Download</h3>
+    <p>Download {{ selectedCount }} selected image{{ selectedCount === 1 ? '' : 's' }} as a ZIP file?</p>
     <div class="confirm-actions">
       <button type="button" class="ghost" (click)="cancelFinalizeConfirm()">Cancel</button>
-      <button type="button" class="primary" (click)="confirmFinalize()">Yes, Copy</button>
+      <button type="button" class="primary" (click)="confirmFinalize()">Download ZIP</button>
     </div>
   </div>
 </section>
 
-<section class="loading-overlay" *ngIf="copyProgressText" aria-live="polite">
+<section class="loading-overlay" *ngIf="copyProgressText" aria-live="polite" role="dialog" aria-modal="true" aria-labelledby="progress-title">
   <div class="loading-dialog">
-    <p class="loading-title">Finalizing selection</p>
+    <p id="progress-title" class="loading-title">Finalizing selection</p>
     <p class="loading-status">{{ copyProgressText }}</p>
     <div class="progress-track">
       <div class="progress-fill" [style.width.%]="copyProgressPercent"></div>
@@ -90,5 +95,6 @@
 </section>
 
 <section class="fullscreen-overlay" *ngIf="fullscreenImageUrl" (click)="closeFullscreen()">
+  <button class="fullscreen-close" type="button" aria-label="Close fullscreen" (click.stop)="closeFullscreen()">×</button>
   <img [src]="fullscreenImageUrl" [alt]="fullscreenImageName" />
 </section>
