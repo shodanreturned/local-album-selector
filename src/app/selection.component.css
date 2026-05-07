@@ -252,19 +252,22 @@
   right: 22px;
   bottom: calc(22px + env(safe-area-inset-bottom, 0px));
   z-index: 35;
-  border: none;
+  border: 2px solid #002347;
   border-radius: 999px;
   padding: 13px 20px;
-  background: #111827;
-  color: #f9fafb;
+  background-color: #004a9f;
+  color: #ffffff;
   font-weight: 600;
   cursor: pointer;
   box-shadow: 0 10px 22px rgba(0, 0, 0, 0.25);
 }
 
 .floating-finalize:disabled {
-  opacity: 0.55;
-  cursor: default;
+  background-color: #4b5563;
+  color: #ffffff;
+  border-color: #374151;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 .floating-clear {

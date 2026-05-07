@@ -19,6 +19,7 @@ export class SelectionComponent implements OnInit, OnDestroy {
   private pendingTapTimer: ReturnType<typeof setTimeout> | null = null;
   private infoToastTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingTapImageId: string | null = null;
+  private loadedDirectoryHandle = false;
 
   allImages: AlbumImage[] = [];
   isLoading = false;
@@ -65,6 +66,7 @@ export class SelectionComponent implements OnInit, OnDestroy {
     const pendingSourceHandle = this.sourceStore.consumePendingSourceHandle();
     if (pendingSourceHandle) {
       this.sourceFolderName = pendingSourceHandle.name;
+      this.loadedDirectoryHandle = true;
       this.isLoading = true;
       try {
         this.allImages = await this.sourceStore.loadImagesFromDirectoryHandle(pendingSourceHandle);
@@ -73,15 +75,15 @@ export class SelectionComponent implements OnInit, OnDestroy {
       } finally {
         this.isLoading = false;
       }
-      return;
+    } else {
+      const pendingManualFiles = this.sourceStore.consumePendingManualFiles();
+      if (pendingManualFiles.length) {
+        this.loadManualFiles(pendingManualFiles);
+      } else {
+        await this.tryRestoreSourceFolder();
+      }
     }
-
-    const pendingManualFiles = this.sourceStore.consumePendingManualFiles();
-    if (pendingManualFiles.length) {
-      this.loadManualFiles(pendingManualFiles);
-      return;
-    }
-    await this.tryRestoreSourceFolder();
+    await this.maybeRedirectIfNoSource();
   }
 
   ngOnDestroy(): void {
@@ -101,6 +103,7 @@ export class SelectionComponent implements OnInit, OnDestroy {
       this.isLoading = true;
       this.sourceStore.revokeImageUrls(this.allImages);
       const rootHandle = await this.sourceStore.getDirectoryPicker()();
+      this.loadedDirectoryHandle = true;
       this.allImages = await this.sourceStore.loadImagesFromDirectoryHandle(rootHandle);
       this.sourceFolderName = rootHandle.name;
       this.restoreSelectionFromStorage();
@@ -246,6 +249,7 @@ export class SelectionComponent implements OnInit, OnDestroy {
       if (!persisted.handle) {
         return;
       }
+      this.loadedDirectoryHandle = true;
       this.isLoading = true;
       this.allImages = await this.sourceStore.loadImagesFromDirectoryHandle(persisted.handle);
       this.restoreSelectionFromStorage();
@@ -255,7 +259,21 @@ export class SelectionComponent implements OnInit, OnDestroy {
     }
   }
 
+  private async maybeRedirectIfNoSource(): Promise<void> {
+    if (this.allImages.length > 0) {
+      return;
+    }
+    if (this.sourceFolderName === 'manual files') {
+      return;
+    }
+    if (this.loadedDirectoryHandle) {
+      return;
+    }
+    await this.router.navigate(['/'], { replaceUrl: true });
+  }
+
   private loadManualFiles(files: File[]): void {
+    this.loadedDirectoryHandle = false;
     this.sourceStore.revokeImageUrls(this.allImages);
     this.sourceFolderName = 'manual files';
     this.allImages = files
