@@ -28,11 +28,16 @@
       >
         {{ isSelectingDestination ? 'Copying...' : 'Finalise' }}
       </button>
+      <button type="button" (click)="clearSelection()" [disabled]="!selectedCount">
+        Clear Selection
+      </button>
     </div>
     <div class="counter">Selected: {{ selectedCount }}</div>
   </header>
 
   <p *ngIf="errorMessage" class="error">{{ errorMessage }}</p>
+  <p *ngIf="infoMessage" class="info">{{ infoMessage }}</p>
+  <p class="hint">Tap to select · Long press to view fullscreen</p>
 
   <section class="grid-wrapper" (scroll)="onGridScroll($event)">
     <p *ngIf="!allImages.length && !isLoading" class="empty">
@@ -44,11 +49,9 @@
         class="card"
         *ngFor="let image of filteredImages"
         [class.selected]="image.selected"
-        (pointerdown)="startPress(image)"
-        (pointerup)="endPress(image)"
-        (pointerleave)="cancelPress()"
-        (pointercancel)="cancelPress()"
+        (pointerup)="onImageTap(image)"
       >
+        <span class="selected-chip" *ngIf="image.selected">Selected</span>
         <img [src]="image.url" [alt]="image.name" loading="lazy" />
         <span class="name">{{ image.name }}</span>
       </article>

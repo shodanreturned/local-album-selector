@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 
 type DirectoryHandle = FileSystemDirectoryHandle;
 type FileHandle = FileSystemFileHandle;
@@ -17,14 +17,18 @@ interface AlbumImage {
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css'],
 })
-export class AppComponent implements OnDestroy {
+export class AppComponent implements OnInit, OnDestroy {
   @ViewChild('imageFilesInput') private imageFilesInput?: ElementRef<HTMLInputElement>;
 
+  private readonly selectedNumbersStorageKey = 'album-selector:selected-image-numbers';
+  private readonly sourceFolderStorageKey = 'album-selector:source-folder-meta';
+  private readonly sourceHandleDbName = 'album-selector-db';
+  private readonly sourceHandleStoreName = 'handles';
+  private readonly sourceHandleKey = 'source-folder-handle';
   private readonly batchSize = 80;
-  private readonly longPressMs = 450;
-  private longPressTimer: ReturnType<typeof setTimeout> | null = null;
-  private activePressImageId: string | null = null;
-  private longPressImageId: string | null = null;
+  private readonly doubleTapMs = 280;
+  private pendingTapTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingTapImageId: string | null = null;
   private destinationHandle: DirectoryHandle | null = null;
 
   allImages: AlbumImage[] = [];
@@ -35,6 +39,7 @@ export class AppComponent implements OnDestroy {
   showSelectedOnly = false;
   fullscreenImageUrl: string | null = null;
   fullscreenImageName = '';
+  infoMessage = '';
 
   get supportsDirectoryPicker(): boolean {
     return 'showDirectoryPicker' in window;
@@ -58,7 +63,12 @@ export class AppComponent implements OnDestroy {
     return this.visibleCount < max;
   }
 
+  ngOnInit(): void {
+    void this.tryRestoreSourceFolder();
+  }
+
   ngOnDestroy(): void {
+    this.clearPendingTap();
     this.revokeAllUrls();
   }
 
@@ -78,22 +88,8 @@ export class AppComponent implements OnDestroy {
       this.destinationHandle = null;
 
       const rootHandle = await this.getDirectoryPicker()();
-      const fileHandles = await this.collectImageHandles(rootHandle);
-
-      this.allImages = await Promise.all(
-        fileHandles.map(async (handle, index) => {
-          const file = await handle.getFile();
-          return {
-            id: `${index}-${file.name}`,
-            name: file.name,
-            url: URL.createObjectURL(file),
-            file,
-            handle,
-            selected: false,
-          };
-        }),
-      );
-      this.allImages.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+      await this.loadImagesFromDirectoryHandle(rootHandle);
+      await this.persistSourceFolder(rootHandle);
     } catch (error) {
       this.errorMessage = this.readError(error, 'Unable to open folder.');
     } finally {
@@ -109,10 +105,12 @@ export class AppComponent implements OnDestroy {
     }
 
     this.errorMessage = '';
+    this.infoMessage = '';
     this.showSelectedOnly = false;
     this.visibleCount = this.batchSize;
     this.revokeAllUrls();
     this.destinationHandle = null;
+    void this.clearSourceFolderStorage();
 
     this.allImages = files
       .filter((file) => {
@@ -129,6 +127,7 @@ export class AppComponent implements OnDestroy {
       }));
 
     this.allImages.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+    this.restoreSelectionFromStorage();
     input.value = '';
   }
 
@@ -140,40 +139,39 @@ export class AppComponent implements OnDestroy {
     }
   }
 
-  startPress(image: AlbumImage): void {
-    this.clearPress();
-    this.activePressImageId = image.id;
-    this.longPressTimer = setTimeout(() => {
-      this.longPressImageId = image.id;
+  onImageTap(image: AlbumImage): void {
+    if (this.pendingTapImageId === image.id && this.pendingTapTimer) {
+      clearTimeout(this.pendingTapTimer);
+      this.pendingTapTimer = null;
+      this.pendingTapImageId = null;
       this.openFullscreen(image);
-    }, this.longPressMs);
-  }
-
-  endPress(image: AlbumImage): void {
-    if (this.activePressImageId !== image.id) {
       return;
     }
 
-    if (this.longPressTimer) {
-      clearTimeout(this.longPressTimer);
-      this.longPressTimer = null;
-    }
-
-    if (this.longPressImageId !== image.id) {
+    this.clearPendingTap();
+    this.pendingTapImageId = image.id;
+    this.pendingTapTimer = setTimeout(() => {
       image.selected = !image.selected;
-    }
-
-    this.longPressImageId = null;
-    this.activePressImageId = null;
-  }
-
-  cancelPress(): void {
-    this.clearPress();
+      this.persistSelectionToStorage();
+      this.pendingTapTimer = null;
+      this.pendingTapImageId = null;
+    }, this.doubleTapMs);
   }
 
   toggleSelectedOnly(): void {
     this.showSelectedOnly = !this.showSelectedOnly;
     this.visibleCount = this.batchSize;
+  }
+
+  clearSelection(): void {
+    for (const image of this.allImages) {
+      image.selected = false;
+    }
+    if (this.showSelectedOnly) {
+      this.visibleCount = this.batchSize;
+    }
+    localStorage.removeItem(this.selectedNumbersStorageKey);
+    this.infoMessage = 'Selection cleared.';
   }
 
   closeFullscreen(): void {
@@ -183,6 +181,7 @@ export class AppComponent implements OnDestroy {
 
   async finaliseSelection(): Promise<void> {
     this.errorMessage = '';
+    this.infoMessage = '';
     const selected = this.allImages.filter((image) => image.selected);
     if (!selected.length) {
       this.errorMessage = 'Select at least one image before finalising.';
@@ -191,6 +190,7 @@ export class AppComponent implements OnDestroy {
 
     if (!this.supportsDirectoryPicker) {
       this.downloadSelectedImages(selected);
+      this.infoMessage = `Downloaded ${selected.length} selected image${selected.length === 1 ? '' : 's'}.`;
       return;
     }
 
@@ -209,6 +209,7 @@ export class AppComponent implements OnDestroy {
         await writable.write(await sourceFile.arrayBuffer());
         await writable.close();
       }
+      this.infoMessage = `Copied ${selected.length} selected image${selected.length === 1 ? '' : 's'}.`;
     } catch (error) {
       this.errorMessage = this.readError(error, 'Unable to copy selected images.');
     } finally {
@@ -219,15 +220,6 @@ export class AppComponent implements OnDestroy {
   private openFullscreen(image: AlbumImage): void {
     this.fullscreenImageUrl = image.url;
     this.fullscreenImageName = image.name;
-  }
-
-  private clearPress(): void {
-    if (this.longPressTimer) {
-      clearTimeout(this.longPressTimer);
-      this.longPressTimer = null;
-    }
-    this.longPressImageId = null;
-    this.activePressImageId = null;
   }
 
   private async collectImageHandles(directory: DirectoryHandle): Promise<FileHandle[]> {
@@ -277,5 +269,146 @@ export class AppComponent implements OnDestroy {
 
   private getDirectoryPicker(): () => Promise<DirectoryHandle> {
     return (window as unknown as { showDirectoryPicker: () => Promise<DirectoryHandle> }).showDirectoryPicker;
+  }
+
+  private clearPendingTap(): void {
+    if (this.pendingTapTimer) {
+      clearTimeout(this.pendingTapTimer);
+      this.pendingTapTimer = null;
+    }
+    this.pendingTapImageId = null;
+  }
+
+  private async loadImagesFromDirectoryHandle(rootHandle: DirectoryHandle): Promise<void> {
+    const fileHandles = await this.collectImageHandles(rootHandle);
+
+    this.allImages = await Promise.all(
+      fileHandles.map(async (handle, index) => {
+        const file = await handle.getFile();
+        return {
+          id: `${index}-${file.name}`,
+          name: file.name,
+          url: URL.createObjectURL(file),
+          file,
+          handle,
+          selected: false,
+        };
+      }),
+    );
+    this.allImages.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+    this.restoreSelectionFromStorage();
+  }
+
+  private async persistSourceFolder(handle: DirectoryHandle): Promise<void> {
+    localStorage.setItem(this.sourceFolderStorageKey, JSON.stringify({ name: handle.name }));
+
+    const db = await this.openSourceHandleDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(this.sourceHandleStoreName, 'readwrite');
+      const store = tx.objectStore(this.sourceHandleStoreName);
+      store.put(handle, this.sourceHandleKey);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  }
+
+  private async tryRestoreSourceFolder(): Promise<void> {
+    if (!this.supportsDirectoryPicker) {
+      return;
+    }
+
+    const raw = localStorage.getItem(this.sourceFolderStorageKey);
+    if (!raw) {
+      return;
+    }
+
+    try {
+      const db = await this.openSourceHandleDb();
+      const handle = await new Promise<DirectoryHandle | null>((resolve, reject) => {
+        const tx = db.transaction(this.sourceHandleStoreName, 'readonly');
+        const store = tx.objectStore(this.sourceHandleStoreName);
+        const request = store.get(this.sourceHandleKey);
+        request.onsuccess = () => resolve((request.result as DirectoryHandle | undefined) ?? null);
+        request.onerror = () => reject(request.error);
+      });
+      db.close();
+
+      if (!handle) {
+        return;
+      }
+
+      this.isLoading = true;
+      await this.loadImagesFromDirectoryHandle(handle);
+      this.infoMessage = 'Restored images from your previously selected folder.';
+    } catch {
+      await this.clearSourceFolderStorage();
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  private async clearSourceFolderStorage(): Promise<void> {
+    localStorage.removeItem(this.sourceFolderStorageKey);
+
+    const db = await this.openSourceHandleDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(this.sourceHandleStoreName, 'readwrite');
+      const store = tx.objectStore(this.sourceHandleStoreName);
+      store.delete(this.sourceHandleKey);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  }
+
+  private async openSourceHandleDb(): Promise<IDBDatabase> {
+    return await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open(this.sourceHandleDbName, 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(this.sourceHandleStoreName)) {
+          db.createObjectStore(this.sourceHandleStoreName);
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  private persistSelectionToStorage(): void {
+    const selectedNumbers: number[] = [];
+    for (let index = 0; index < this.allImages.length; index += 1) {
+      if (this.allImages[index].selected) {
+        selectedNumbers.push(index + 1);
+      }
+    }
+    localStorage.setItem(this.selectedNumbersStorageKey, JSON.stringify(selectedNumbers));
+  }
+
+  private restoreSelectionFromStorage(): void {
+    const raw = localStorage.getItem(this.selectedNumbersStorageKey);
+    if (!raw) {
+      return;
+    }
+
+    try {
+      const selectedNumbers = JSON.parse(raw) as number[];
+      if (!Array.isArray(selectedNumbers)) {
+        return;
+      }
+
+      const selectedIndexes = new Set(
+        selectedNumbers
+          .filter((value) => Number.isInteger(value) && value > 0)
+          .map((value) => value - 1),
+      );
+
+      for (let index = 0; index < this.allImages.length; index += 1) {
+        this.allImages[index].selected = selectedIndexes.has(index);
+      }
+    } catch {
+      localStorage.removeItem(this.selectedNumbersStorageKey);
+    }
   }
 }
