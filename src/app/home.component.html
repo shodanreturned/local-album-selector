@@ -1,0 +1,55 @@
+<main class="page">
+  <input
+    #imageFilesInput
+    type="file"
+    accept=".jpg,.jpeg,image/jpeg"
+    multiple
+    hidden
+    (change)="onFilesChosen($event)"
+  />
+
+  <header class="home-top-bar">
+    <div class="brand">
+      <div class="brand-icon" aria-hidden="true">
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <div>
+        <p class="brand-title">Lightbox</p>
+        <p class="brand-subtitle">ALBUM CURATOR</p>
+      </div>
+    </div>
+    <div class="source-pill" *ngIf="hasPersistedSource">source {{ sourceFolderName }}</div>
+  </header>
+
+  <section class="home">
+    <div class="home-copy">
+      <p class="step-label">STEP 01 - CHOOSE SOURCE</p>
+      <h1 class="hero-title">
+        Pick a folder.<br />
+        <span>Curate an album.</span>
+      </h1>
+      <p class="hero-description">
+        Select a folder of photos from your device. Lightbox keeps your originals untouched -
+        it just remembers which ones make the cut.
+      </p>
+      <button class="choose-button" type="button" (click)="chooseSource()" [disabled]="isLoading">
+        {{ isLoading ? 'Loading...' : (supportsDirectoryPicker ? 'Choose source folder' : 'Go to selection') }}
+      </button>
+      <button
+        *ngIf="hasPersistedSource"
+        class="continue-button"
+        type="button"
+        (click)="continueWithStoredSource()"
+      >
+        Continue
+      </button>
+      <p *ngIf="errorMessage" class="error">{{ errorMessage }}</p>
+    </div>
+
+    <div class="photo-stack" aria-hidden="true">
+      <div class="polaroid p1"></div>
+      <div class="polaroid p2"></div>
+      <div class="polaroid p3"></div>
+    </div>
+  </section>
+</main>

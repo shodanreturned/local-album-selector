@@ -1,0 +1,304 @@
+:host {
+  display: block;
+  font-family: "Inter", Arial, Helvetica, sans-serif;
+}
+
+.selection-page {
+  height: 100vh;
+  background: #ece9e4;
+  padding: 16px 22px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 1.4fr) auto auto auto auto;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.brand { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+.brand-icon {
+  width: 42px;
+  height: 42px;
+  border: 2px solid #1f1a14;
+  border-radius: 9px;
+  background: #1f1a14;
+  padding: 5px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+}
+.brand-icon span { border-radius: 2px; background: #f2ece2; }
+.brand-icon span:nth-child(1) { background: #d8bd95; }
+.brand-title { margin: 0; font-size: 50px; font-family: "Times New Roman", serif; font-weight: 500; line-height: 0.9; }
+.brand-subtitle { margin: 2px 0 0; font-size: 12px; letter-spacing: 4.4px; line-height: 1.1; color: #7a7166; }
+
+.pill {
+  border-radius: 999px;
+  border: 1px solid #c8c1b7;
+  background: #f1efeb;
+  padding: 8px 14px;
+}
+
+.source {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.source span { font-size: 11px; letter-spacing: 1px; color: #7b7268; text-transform: uppercase; }
+.source strong { font-size: 20px; font-weight: 600; color: #2d2822; }
+.source em { margin-left: auto; font-style: normal; color: #857b71; font-size: 12px; }
+.source-change {
+  margin-left: 10px;
+  border-radius: 999px;
+  border: 1px solid #c8c1b7;
+  background: #fff;
+  color: #5f564b;
+  font-size: 12px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.source-change:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.toggle { display: flex; padding: 4px; gap: 4px; }
+.toggle button {
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  padding: 6px 14px;
+  color: #61574c;
+  cursor: pointer;
+}
+.toggle button.active { background: #17140f; color: #f4f2ed; }
+
+.ghost, .primary {
+  border-radius: 999px;
+  border: 1px solid #c8c1b7;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+.ghost { background: #f1efeb; color: #6b6156; }
+.primary { background: #9a9389; color: #fff; border-color: transparent; }
+.ghost:disabled, .primary:disabled { opacity: 0.5; cursor: default; }
+
+.error { color: #b91c1c; margin: 0 0 8px; }
+.copy-progress { color: #374151; margin: 0 0 8px; font-size: 13px; }
+
+.gallery-scroll {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.gallery {
+  column-count: 3;
+  column-gap: 12px;
+  padding-bottom: 90px;
+}
+
+.tile {
+  break-inside: avoid;
+  margin: 0 0 12px;
+  background: #ddd7cf;
+  border: 2px solid transparent;
+  position: relative;
+}
+.tile.selected { border-color: #111; }
+.tile img { width: 100%; display: block; height: auto; }
+.pick-indicator {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  border-radius: 999px;
+  border: none;
+  width: 30px;
+  height: 30px;
+  background: rgba(255, 255, 255, 0.85);
+}
+.tile footer {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  color: #fff;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+.fullscreen-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 30;
+}
+.fullscreen-overlay img {
+  width: auto;
+  max-width: 96vw;
+  height: auto;
+  max-height: 96vh;
+}
+
+.toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 40;
+  background: rgba(17, 24, 39, 0.95);
+  color: #f8fafc;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+}
+
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  background: rgba(17, 24, 39, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirm-dialog {
+  width: min(420px, 90vw);
+  background: #fff;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+}
+
+.confirm-dialog h3 {
+  margin: 0 0 8px;
+  color: #111827;
+}
+
+.confirm-dialog p {
+  margin: 0 0 14px;
+  color: #374151;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(17, 24, 39, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-dialog {
+  width: min(420px, 90vw);
+  background: #fff;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+}
+
+.loading-title {
+  margin: 0 0 8px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.loading-status {
+  margin: 0 0 12px;
+  color: #374151;
+  font-size: 14px;
+}
+
+.progress-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #2563eb;
+  transition: width 0.2s ease;
+}
+
+.progress-percent {
+  margin: 10px 0 0;
+  text-align: right;
+  color: #4b5563;
+  font-size: 13px;
+}
+
+.floating-finalize {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 35;
+  border: none;
+  border-radius: 999px;
+  padding: 13px 20px;
+  background: #111827;
+  color: #f9fafb;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.25);
+}
+
+.floating-finalize:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.floating-clear {
+  position: fixed;
+  top: 18px;
+  right: 22px;
+  z-index: 35;
+  border-radius: 999px;
+  border: 1px solid #c8c1b7;
+  background: #f1efeb;
+  color: #6b6156;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+
+.floating-clear:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+@media (max-width: 1000px) {
+  .toolbar { grid-template-columns: 1fr; }
+  .gallery { column-count: 2; }
+}
+
+@media (max-width: 640px) {
+  .selection-page { padding: 10px; }
+  .gallery { column-count: 1; }
+  .floating-finalize {
+    right: 12px;
+    bottom: 12px;
+  }
+  .floating-clear {
+    top: 10px;
+    right: 12px;
+  }
+}
