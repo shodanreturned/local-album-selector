@@ -33,7 +33,7 @@
         it just remembers which ones make the cut.
       </p>
       <button class="choose-button" type="button" (click)="chooseSource()" [disabled]="isLoading">
-        {{ isLoading ? 'Loading...' : (supportsDirectoryPicker ? 'Choose source folder' : 'Go to selection') }}
+        {{ isLoading ? 'Loading...' : (supportsDirectoryPicker ? 'Choose source folder' : 'Choose JPG files') }}
       </button>
       <button
         *ngIf="hasPersistedSource"

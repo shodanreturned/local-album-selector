@@ -27,7 +27,7 @@ export class HomeComponent {
   async chooseSource(): Promise<void> {
     this.errorMessage = '';
     if (!this.supportsDirectoryPicker) {
-      this.router.navigate(['/selection']);
+      this.imageFilesInput?.nativeElement.click();
       return;
     }
 
