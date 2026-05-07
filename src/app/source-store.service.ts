@@ -18,6 +18,7 @@ export class SourceStoreService {
   readonly sourceHandleDbName = 'album-selector-db';
   readonly sourceHandleStoreName = 'handles';
   readonly sourceHandleKey = 'source-folder-handle';
+  private pendingManualFiles: File[] = [];
 
   get supportsDirectoryPicker(): boolean {
     return 'showDirectoryPicker' in window;
@@ -97,6 +98,16 @@ export class SourceStoreService {
     for (const image of images) {
       URL.revokeObjectURL(image.url);
     }
+  }
+
+  setPendingManualFiles(files: File[]): void {
+    this.pendingManualFiles = [...files];
+  }
+
+  consumePendingManualFiles(): File[] {
+    const files = [...this.pendingManualFiles];
+    this.pendingManualFiles = [];
+    return files;
   }
 
   private async collectImageHandles(directory: DirectoryHandle): Promise<FileHandle[]> {

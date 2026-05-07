@@ -46,9 +46,11 @@ export class HomeComponent {
 
   onFilesChosen(event: Event): void {
     const input = event.target as HTMLInputElement;
-    if (!input.files?.length) {
+    const files = Array.from(input.files ?? []);
+    if (!files.length) {
       return;
     }
+    this.sourceStore.setPendingManualFiles(files);
     this.sourceFolderName = 'manual files';
     input.value = '';
     void this.router.navigate(['/selection']);

@@ -64,6 +64,11 @@ export class SelectionComponent implements OnInit, OnDestroy {
   }
 
   async ngOnInit(): Promise<void> {
+    const pendingManualFiles = this.sourceStore.consumePendingManualFiles();
+    if (pendingManualFiles.length) {
+      this.loadManualFiles(pendingManualFiles);
+      return;
+    }
     await this.tryRestoreSourceFolder();
   }
 
@@ -102,26 +107,7 @@ export class SelectionComponent implements OnInit, OnDestroy {
     if (!files.length) {
       return;
     }
-
-    this.sourceStore.revokeImageUrls(this.allImages);
-    this.sourceFolderName = 'manual files';
-    this.allImages = files
-      .filter((file) => {
-        const lower = file.name.toLowerCase();
-        return lower.endsWith('.jpg') || lower.endsWith('.jpeg');
-      })
-      .map((file, index) => ({
-        id: `${index}-${file.name}`,
-        name: file.name,
-        url: URL.createObjectURL(file),
-        file,
-        handle: null,
-        selected: false,
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
-    this.restoreSelectionFromStorage();
-    this.visibleCount = this.renderBatchSize;
-    void this.sourceStore.clearPersistedSourceFolder();
+    this.loadManualFiles(files);
     input.value = '';
   }
 
@@ -259,6 +245,28 @@ export class SelectionComponent implements OnInit, OnDestroy {
     } finally {
       this.isLoading = false;
     }
+  }
+
+  private loadManualFiles(files: File[]): void {
+    this.sourceStore.revokeImageUrls(this.allImages);
+    this.sourceFolderName = 'manual files';
+    this.allImages = files
+      .filter((file) => {
+        const lower = file.name.toLowerCase();
+        return lower.endsWith('.jpg') || lower.endsWith('.jpeg');
+      })
+      .map((file, index) => ({
+        id: `${index}-${file.name}`,
+        name: file.name,
+        url: URL.createObjectURL(file),
+        file,
+        handle: null,
+        selected: false,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+    this.restoreSelectionFromStorage();
+    this.visibleCount = this.renderBatchSize;
+    void this.sourceStore.clearPersistedSourceFolder();
   }
 
   setShowSelectedOnly(enabled: boolean): void {
