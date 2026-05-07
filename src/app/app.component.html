@@ -1,0 +1,52 @@
+<main class="page">
+  <header class="top-bar">
+    <div class="actions">
+      <button type="button" (click)="pickDirectory()" [disabled]="isLoading">
+        {{ isLoading ? 'Loading...' : 'Choose Source Folder' }}
+      </button>
+      <button
+        type="button"
+        (click)="toggleSelectedOnly()"
+        [disabled]="!allImages.length"
+      >
+        {{ showSelectedOnly ? 'Show All Images' : 'Show Selected Only' }}
+      </button>
+      <button
+        *ngIf="showSelectedOnly"
+        type="button"
+        (click)="finaliseSelection()"
+        [disabled]="isSelectingDestination || !selectedCount"
+      >
+        {{ isSelectingDestination ? 'Copying...' : 'Finalise' }}
+      </button>
+    </div>
+    <div class="counter">Selected: {{ selectedCount }}</div>
+  </header>
+
+  <p *ngIf="errorMessage" class="error">{{ errorMessage }}</p>
+
+  <section class="grid-wrapper" (scroll)="onGridScroll($event)">
+    <p *ngIf="!allImages.length && !isLoading" class="empty">
+      Choose a folder to load JPG images.
+    </p>
+
+    <div class="grid">
+      <article
+        class="card"
+        *ngFor="let image of filteredImages"
+        [class.selected]="image.selected"
+        (pointerdown)="startPress(image)"
+        (pointerup)="endPress(image)"
+        (pointerleave)="cancelPress()"
+        (pointercancel)="cancelPress()"
+      >
+        <img [src]="image.url" [alt]="image.name" loading="lazy" />
+        <span class="name">{{ image.name }}</span>
+      </article>
+    </div>
+  </section>
+</main>
+
+<section class="fullscreen-overlay" *ngIf="fullscreenImageUrl" (click)="closeFullscreen()">
+  <img [src]="fullscreenImageUrl" [alt]="fullscreenImageName" />
+</section>
