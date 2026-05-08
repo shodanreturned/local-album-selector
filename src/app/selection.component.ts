@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { zipSync } from 'fflate';
 
@@ -13,12 +13,9 @@ export class SelectionComponent implements OnInit, OnDestroy {
   @ViewChild('imageFilesInput') private imageFilesInput?: ElementRef<HTMLInputElement>;
 
   private readonly selectedNamesStoragePrefix = 'album-selector:selected-image-names:';
-  private readonly doubleTapMs = 280;
   private readonly copyConcurrency = 4;
   private readonly renderBatchSize = 120;
-  private pendingTapTimer: ReturnType<typeof setTimeout> | null = null;
   private infoToastTimer: ReturnType<typeof setTimeout> | null = null;
-  private pendingTapImageId: string | null = null;
   private loadedDirectoryHandle = false;
 
   allImages: AlbumImage[] = [];
@@ -86,8 +83,16 @@ export class SelectionComponent implements OnInit, OnDestroy {
     await this.maybeRedirectIfNoSource();
   }
 
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    if (this.fullscreenImageUrl) {
+      this.closeFullscreen();
+    } else if (this.showFinalizeConfirm) {
+      this.cancelFinalizeConfirm();
+    }
+  }
+
   ngOnDestroy(): void {
-    this.clearPendingTap();
     this.clearInfoToastTimer();
     this.sourceStore.revokeImageUrls(this.allImages);
   }
@@ -127,23 +132,13 @@ export class SelectionComponent implements OnInit, OnDestroy {
   }
 
   onImageTap(image: AlbumImage): void {
-    if (this.pendingTapImageId === image.id && this.pendingTapTimer) {
-      clearTimeout(this.pendingTapTimer);
-      this.pendingTapTimer = null;
-      this.pendingTapImageId = null;
-      this.fullscreenImageUrl = image.url;
-      this.fullscreenImageName = image.name;
-      return;
-    }
+    image.selected = !image.selected;
+    this.persistSelectionToStorage();
+  }
 
-    this.clearPendingTap();
-    this.pendingTapImageId = image.id;
-    this.pendingTapTimer = setTimeout(() => {
-      image.selected = !image.selected;
-      this.persistSelectionToStorage();
-      this.pendingTapTimer = null;
-      this.pendingTapImageId = null;
-    }, this.doubleTapMs);
+  openFullscreen(image: AlbumImage): void {
+    this.fullscreenImageUrl = image.url;
+    this.fullscreenImageName = image.name;
   }
 
   async finaliseSelection(): Promise<void> {
@@ -309,14 +304,6 @@ export class SelectionComponent implements OnInit, OnDestroy {
     if (nearBottom) {
       this.visibleCount += this.renderBatchSize;
     }
-  }
-
-  private clearPendingTap(): void {
-    if (this.pendingTapTimer) {
-      clearTimeout(this.pendingTapTimer);
-      this.pendingTapTimer = null;
-    }
-    this.pendingTapImageId = null;
   }
 
   private pushInfoToast(message: string): void {
