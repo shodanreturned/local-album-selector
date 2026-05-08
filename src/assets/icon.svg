@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Dark background with rounded corners -->
+  <rect width="512" height="512" rx="108" fill="#1f1a14"/>
+  <!-- Top-left cell: warm gold accent -->
+  <rect x="64" y="64" width="176" height="176" rx="20" fill="#d8bd95"/>
+  <!-- Top-right cell: cream -->
+  <rect x="272" y="64" width="176" height="176" rx="20" fill="#f2ece2"/>
+  <!-- Bottom-left cell: cream -->
+  <rect x="64" y="272" width="176" height="176" rx="20" fill="#f2ece2"/>
+  <!-- Bottom-right cell: cream -->
+  <rect x="272" y="272" width="176" height="176" rx="20" fill="#f2ece2"/>
+</svg>
