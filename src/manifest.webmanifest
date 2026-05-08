@@ -1,7 +1,7 @@
 {
-  "name": "local-album-selector",
-  "short_name": "local-album-selector",
-  "theme_color": "#1976d2",
+  "name": "Lightbox",
+  "short_name": "Lightbox",
+  "theme_color": "#1f1a14",
   "background_color": "#fafafa",
   "display": "standalone",
   "scope": "./",
